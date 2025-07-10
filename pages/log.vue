@@ -25,6 +25,11 @@
           <p class="text-sm">{{ formatDate(today) }}</p>
         </CardHeader>
         <CardContent class="space-y-6">
+          <div class="flex items-center gap-3 mb-4">
+            <Label class="font-medium">Log Date</Label>
+            <DatePicker v-model="selectedDateISO" />
+            <!-- Fallback: <input type="date" v-model="selectedDateISO" /> -->
+          </div>
           <!-- Mood Selection -->
           <div class="space-y-3">
             <Label class="font-medium">How are you feeling today?</Label>
@@ -114,7 +119,7 @@
               class="flex items-start gap-4 p-4"
             >
               <div class="w-12 h-12 flex items-center justify-center flex-shrink-0">
-                <component :is="getMoodIcon(log.mood)" class="w-6 h-6" />
+                <component :is="getMoodIcon(log.mood || '')" class="w-6 h-6" />
               </div>
               <div class="flex-1">
                 <div class="flex items-center gap-2 mb-2">
@@ -146,7 +151,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import type { Ref } from 'vue'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -154,11 +160,13 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useCycleStore } from '@/stores/cycle'
+import { DatePicker } from '@/components/ui/date-picker' // If shadcn-vue date picker is available
 import { 
   PlusCircleIcon, PenToolIcon, SaveIcon, HistoryIcon, SmileIcon, 
   MoonIcon, FrownIcon, ZapIcon, DropletsIcon, CircleIcon, HeartIcon,
   AlertTriangleIcon, ActivityIcon, ThermometerIcon, CoffeeIcon, Loader2Icon
 } from 'lucide-vue-next'
+import { CalendarDate, parseDate, today as intlToday } from '@internationalized/date'
 
 const cycleStore = useCycleStore()
 
@@ -168,23 +176,28 @@ const selectedSymptoms = ref<string[]>([])
 const notes = ref('')
 const isSaving = ref(false)
 
-// Get today's date
-const today = computed(() => {
-  return new Date().toISOString().slice(0, 10)
+// selectedDateISO is always a string, initialized as:
+const selectedDateISO = ref(new Date().toISOString().slice(0, 10))
+
+// Remove computed calendarDate
+
+const today = computed(() => selectedDateISO.value)
+const existingLog = computed(() => cycleStore.getDailyLog(selectedDateISO.value))
+
+// Watch selectedDateISO and load log data for that date
+watch(selectedDateISO, (newISO) => {
+  const log = cycleStore.getDailyLog(newISO)
+  selectedMood.value = log ? moods.find(m => m.label === log.mood) || null : null
+  selectedSymptoms.value = log ? log.symptoms || [] : []
+  notes.value = log ? log.notes || '' : ''
 })
 
-// Check if there's an existing log for today
-const existingLog = computed(() => {
-  return cycleStore.getDailyLog(today.value)
-})
-
-// Load existing log data if available
 onMounted(() => {
-  const todayLog = existingLog.value
-  if (todayLog) {
-    selectedMood.value = moods.find(m => m.label === todayLog.mood) || null
-    selectedSymptoms.value = todayLog.symptoms || []
-    notes.value = todayLog.notes || ''
+  const log = existingLog.value
+  if (log) {
+    selectedMood.value = moods.find(m => m.label === log.mood) || null
+    selectedSymptoms.value = log.symptoms || []
+    notes.value = log.notes || ''
   }
 })
 
@@ -246,14 +259,14 @@ async function saveLog() {
       mood: selectedMood.value.label,
       symptoms: selectedSymptoms.value,
       notes: notes.value,
-      date: today.value
+      date: selectedDateISO.value
     }
 
     // Simulate a small delay for better UX
     await new Promise(resolve => setTimeout(resolve, 500))
 
     // Save to Pinia store
-    cycleStore.addDailyLog(today.value, logData)
+    cycleStore.addDailyLog(logData.date, logData)
     
     // Show success message
     toast.success(existingLog.value ? 'Log updated successfully!' : 'Log saved successfully!')

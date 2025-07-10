@@ -12,10 +12,7 @@
             <p class="text-sm text-muted-foreground">Track your cycle with confidence</p>
           </div>
         </div>
-        <Button @click="testSonner" variant="outline" size="sm">
-          <BellIcon class="w-4 h-4 mr-2" />
-          Test Toast
-        </Button>
+        
       </div>
 
       <!-- Today's Status Card -->
@@ -637,17 +634,6 @@ const logStreak = computed(() => {
 
   return streak
 })
-
-function testSonner() {
-  toast('🎉 Sonner is working perfectly!', {
-    description: 'This toast notification system is fully functional and ready for production use.',
-    duration: 4000,
-    action: {
-      label: 'Dismiss',
-      onClick: () => console.log('Dismissed'),
-    },
-  })
-}
 
 // Check if user needs welcome modal
 onMounted(() => {
